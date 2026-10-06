@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { ThemeProvider, CssBaseline, Box, Snackbar, Alert, CircularProgress, Typography, Button } from '@mui/material';
-import { Refresh as RefreshIcon } from '@mui/icons-material';
+import { ThemeProvider, CssBaseline, Box, Snackbar, Alert, CircularProgress, Typography } from '@mui/material';
 import { collegeTheme } from './theme/collegeTheme';
 import { UserRole, Book, Member, BorrowTransaction, ReadingRoomSeat, DigitalResource, LibraryAnnouncement, BookSuggestion, Almari } from './types/library';
 
@@ -15,8 +14,9 @@ import { announcementService } from './services/announcementService';
 import { suggestionService } from './services/suggestionService';
 import { feedbackService } from './services/feedbackService';
 import { authService } from './services/authService';
+import { settingsService, LibrarySettings } from './services/settingsService';
 
-// Fallback seed data in case backend server is temporarily unreachable during first seconds
+// Fallback seed data
 import {
   INITIAL_BOOKS,
   INITIAL_MEMBERS,
@@ -54,6 +54,7 @@ import { ManageMembers } from './components/librarian/ManageMembers';
 import { FineManagement } from './components/librarian/FineManagement';
 import { AdminDashboard } from './components/admin/AdminDashboard';
 import { AboutAndRules } from './components/info/AboutAndRules';
+import { ManageSettings } from './components/admin/ManageSettings';
 
 export const App: React.FC = () => {
   // Roles & Authentication State
@@ -66,7 +67,6 @@ export const App: React.FC = () => {
 
   // Loading & Sync States
   const [loading, setLoading] = useState<boolean>(true);
-  const [isBackendConnected, setIsBackendConnected] = useState<boolean>(true);
 
   // Core Dynamic Data State
   const [books, setBooks] = useState<Book[]>(INITIAL_BOOKS);
@@ -77,6 +77,46 @@ export const App: React.FC = () => {
   const [resources, setResources] = useState<DigitalResource[]>(INITIAL_DIGITAL_RESOURCES);
   const [announcements, setAnnouncements] = useState<LibraryAnnouncement[]>(INITIAL_ANNOUNCEMENTS);
   const [suggestions, setSuggestions] = useState<BookSuggestion[]>(INITIAL_SUGGESTIONS);
+  const [settings, setSettings] = useState<LibrarySettings>({
+    finePerDay: 5,
+    maxBorrowDaysStudent: 14,
+    maxBorrowDaysTeacher: 30,
+    maxBooksStudent: 2,
+    maxBooksTeacher: 5,
+    timings: 'Mon–Sat: 8:00 AM – 4:00 PM',
+    location: 'Data Nagar, Badami Bagh, Lahore',
+    collegeName: 'Govt Associate College Data Nagar Lahore',
+    contactPhone: '042-99001122',
+    contactEmail: 'library@gacdn.edu.pk',
+    staffMembers: [
+      {
+        name: 'Mr. Rashid Mahmood',
+        designation: 'Chief College Librarian (BS-17)',
+        shift: 'Morning (8:00 AM – 3:30 PM)',
+        desk: 'Circulation & Acquisition Desk',
+        phone: '0300-8484123',
+        email: 'rashid.librarian@gacdn.edu.pk'
+      },
+      {
+        name: 'Mr. Muhammad Imran',
+        designation: 'Assistant Librarian (Cataloging & IT)',
+        shift: 'Morning (8:30 AM – 4:00 PM)',
+        desk: 'E-Library & Classification',
+        phone: '0321-7788990',
+        email: 'imran.library@gacdn.edu.pk'
+      },
+      {
+        name: 'Mr. Asif Ali',
+        designation: 'Library Attendant / Book Binder',
+        shift: 'Morning (8:00 AM – 3:30 PM)',
+        desk: 'Almari Shelf Maintenance & Reading Room Discipline',
+        phone: '0313-4455667',
+        email: 'asif.library@gacdn.edu.pk'
+      }
+    ],
+    libraryRules: [],
+    faqs: []
+  });
 
   // Active Modals State
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
@@ -102,7 +142,7 @@ export const App: React.FC = () => {
     setToast({ open: true, message, severity });
   };
 
-  // Fetch all live data from Node.js backend
+  // Fetch all live data from backend
   const fetchAllData = useCallback(async (isInitial = false) => {
     if (isInitial) setLoading(true);
     try {
@@ -114,7 +154,8 @@ export const App: React.FC = () => {
         seatsRes,
         resourcesData,
         announcementsData,
-        suggestionsData
+        suggestionsData,
+        settingsData
       ] = await Promise.all([
         bookService.getBooks().catch(() => null),
         shelfService.getAlmaris().catch(() => null),
@@ -123,7 +164,8 @@ export const App: React.FC = () => {
         seatService.getSeats().catch(() => null),
         resourceService.getResources().catch(() => null),
         announcementService.getAnnouncements().catch(() => null),
-        suggestionService.getSuggestions().catch(() => null)
+        suggestionService.getSuggestions().catch(() => null),
+        settingsService.getSettings().catch(() => null)
       ]);
 
       if (booksData) setBooks(booksData);
@@ -134,17 +176,14 @@ export const App: React.FC = () => {
       if (resourcesData) setResources(resourcesData);
       if (announcementsData) setAnnouncements(announcementsData);
       if (suggestionsData) setSuggestions(suggestionsData);
-
-      setIsBackendConnected(true);
+      if (settingsData) setSettings(settingsData);
     } catch (err) {
-      console.warn('Backend API connection warning, using local dynamic state:', err);
-      setIsBackendConnected(false);
+      console.warn('API sync check:', err);
     } finally {
       if (isInitial) setLoading(false);
     }
   }, []);
 
-  // Initialize data on mount
   useEffect(() => {
     const storedUser = authService.getStoredUser();
     if (storedUser && (storedUser.role === 'librarian' || storedUser.role === 'admin')) {
@@ -194,7 +233,7 @@ export const App: React.FC = () => {
     try {
       const created = await shelfService.createAlmari(newAlmari);
       setAlmaris((prev) => [created, ...prev.filter((a) => a.id !== created.id)]);
-      showToast(`Almari "${created.almariCode} (${created.name})" saved to backend!`);
+      showToast(`Almari "${created.almariCode} (${created.name})" saved!`);
     } catch {
       setAlmaris((prev) => [newAlmari, ...prev]);
       showToast(`Almari "${newAlmari.almariCode}" created!`);
@@ -205,7 +244,7 @@ export const App: React.FC = () => {
     try {
       const updated = await shelfService.updateAlmari(updatedAlmari.id, updatedAlmari);
       setAlmaris((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
-      showToast(`Almari "${updated.almariCode}" updated in database!`);
+      showToast(`Almari "${updated.almariCode}" updated!`);
     } catch {
       setAlmaris((prev) => prev.map((a) => (a.id === updatedAlmari.id ? updatedAlmari : a)));
       showToast(`Almari "${updatedAlmari.almariCode}" updated!`);
@@ -235,11 +274,9 @@ export const App: React.FC = () => {
 
       if (res.success && res.data) {
         setTransactions((prev) => [res.data, ...prev]);
-        // Update local books copy count
         setBooks((prev) =>
           prev.map((b) => (b.id === txData.bookId ? { ...b, availableCopies: Math.max(0, b.availableCopies - 1) } : b))
         );
-        // Update local member issued count
         setMembers((prev) =>
           prev.map((m) =>
             m.rollNo.toLowerCase() === txData.memberRollNo.toLowerCase()
@@ -247,28 +284,11 @@ export const App: React.FC = () => {
               : m
           )
         );
-        showToast(res.message || `Book "${txData.bookTitle}" issued successfully to ${txData.memberName}!`);
+        showToast(res.message || `Book "${txData.bookTitle}" issued successfully!`);
         return;
       }
     } catch (err: any) {
-      console.warn('Issue book API error, applying local state update:', err);
-      const newTx: BorrowTransaction = {
-        ...txData,
-        id: `tx-${Date.now()}`,
-        transactionNo: `TRX-2025-${Math.floor(1000 + Math.random() * 9000)}`
-      };
-      setTransactions((prev) => [newTx, ...prev]);
-      setBooks((prev) =>
-        prev.map((b) => (b.id === txData.bookId ? { ...b, availableCopies: Math.max(0, b.availableCopies - 1) } : b))
-      );
-      setMembers((prev) =>
-        prev.map((m) =>
-          m.rollNo.toLowerCase() === txData.memberRollNo.toLowerCase()
-            ? { ...m, issuedBooksCount: m.issuedBooksCount + 1 }
-            : m
-        )
-      );
-      showToast(`Book "${txData.bookTitle}" issued to ${txData.memberName}!`);
+      showToast(err.message || 'Error issuing book', 'error');
     }
   };
 
@@ -294,36 +314,9 @@ export const App: React.FC = () => {
         showToast(res.message || `Book "${tx.bookTitle}" successfully returned!`);
         return;
       }
-    } catch (err) {
-      console.warn('Return book API error, falling back to local update:', err);
+    } catch (err: any) {
+      showToast(err.message || 'Error returning book', 'error');
     }
-
-    setTransactions((prev) =>
-      prev.map((t) =>
-        t.id === transactionId
-          ? {
-              ...t,
-              status: 'Returned',
-              returnDate: new Date().toISOString().split('T')[0],
-              fineStatus: t.fineAmount > 0 ? 'Paid' : 'None'
-            }
-          : t
-      )
-    );
-
-    setBooks((prev) =>
-      prev.map((b) => (b.id === tx.bookId ? { ...b, availableCopies: Math.min(b.totalCopies, b.availableCopies + 1) } : b))
-    );
-
-    setMembers((prev) =>
-      prev.map((m) =>
-        m.rollNo.toLowerCase() === tx.memberRollNo.toLowerCase()
-          ? { ...m, issuedBooksCount: Math.max(0, m.issuedBooksCount - 1) }
-          : m
-      )
-    );
-
-    showToast(`Book "${tx.bookTitle}" successfully returned.`);
   };
 
   // Dynamic Renew Book Handler
@@ -333,27 +326,10 @@ export const App: React.FC = () => {
       if (res.success && res.data) {
         setTransactions((prev) => prev.map((t) => (t.id === transactionId ? res.data : t)));
         showToast(res.message || 'Book renewed for 7 additional days!');
-        return;
       }
-    } catch (err) {
-      console.warn('Renew book API error, applying local state update:', err);
+    } catch (err: any) {
+      showToast(err.message || 'Error renewing book', 'error');
     }
-
-    setTransactions((prev) =>
-      prev.map((t) => {
-        if (t.id === transactionId) {
-          const due = new Date(t.dueDate);
-          due.setDate(due.getDate() + 7);
-          return {
-            ...t,
-            dueDate: due.toISOString().split('T')[0],
-            renewCount: t.renewCount + 1
-          };
-        }
-        return t;
-      })
-    );
-    showToast('Book renewed for an additional 7 days!');
   };
 
   // Dynamic Fine Handlers
@@ -363,16 +339,10 @@ export const App: React.FC = () => {
       if (res.success && res.data) {
         setTransactions((prev) => prev.map((t) => (t.id === transactionId ? res.data : t)));
         showToast(res.message || 'Fine collected and receipt generated!');
-        return;
       }
-    } catch (err) {
-      console.warn('Collect fine API error:', err);
+    } catch (err: any) {
+      showToast(err.message || 'Error collecting fine', 'error');
     }
-
-    setTransactions((prev) =>
-      prev.map((t) => (t.id === transactionId ? { ...t, fineStatus: 'Paid' } : t))
-    );
-    showToast('Fine collected and receipt generated!');
   };
 
   const handleWaiveFine = async (transactionId: string) => {
@@ -381,16 +351,10 @@ export const App: React.FC = () => {
       if (res.success && res.data) {
         setTransactions((prev) => prev.map((t) => (t.id === transactionId ? res.data : t)));
         showToast(res.message || 'Fine waived under college welfare provision.');
-        return;
       }
-    } catch (err) {
-      console.warn('Waive fine API error:', err);
+    } catch (err: any) {
+      showToast(err.message || 'Error waiving fine', 'error');
     }
-
-    setTransactions((prev) =>
-      prev.map((t) => (t.id === transactionId ? { ...t, fineStatus: 'Waived', fineAmount: 0 } : t))
-    );
-    showToast('Fine waived under college welfare provision.');
   };
 
   // Dynamic Seat Handlers
@@ -400,26 +364,10 @@ export const App: React.FC = () => {
       if (res.success && res.data) {
         setSeats((prev) => prev.map((s) => (s.id === seatId ? res.data : s)));
         showToast(res.message || `Desk S-${String(seatId).padStart(2, '0')} booked for ${studentName}!`);
-        return;
       }
-    } catch (err) {
-      console.warn('Book seat API error:', err);
+    } catch (err: any) {
+      showToast(err.message || 'Error booking desk', 'error');
     }
-
-    setSeats((prev) =>
-      prev.map((s) =>
-        s.id === seatId
-          ? {
-              ...s,
-              status: 'Occupied',
-              currentOccupantRollNo: rollNo,
-              currentOccupantName: studentName,
-              bookedUntil: '04:00 PM'
-            }
-          : s
-      )
-    );
-    showToast(`Desk S-${String(seatId).padStart(2, '0')} confirmed for ${studentName} today!`);
   };
 
   const handleVacateSeat = async (seatId: number) => {
@@ -428,26 +376,10 @@ export const App: React.FC = () => {
       if (res.success && res.data) {
         setSeats((prev) => prev.map((s) => (s.id === seatId ? res.data : s)));
         showToast(res.message || `Desk S-${String(seatId).padStart(2, '0')} is now available.`);
-        return;
       }
-    } catch (err) {
-      console.warn('Vacate seat API error:', err);
+    } catch (err: any) {
+      showToast(err.message || 'Error vacating desk', 'error');
     }
-
-    setSeats((prev) =>
-      prev.map((s) =>
-        s.id === seatId
-          ? {
-              ...s,
-              status: 'Available',
-              currentOccupantRollNo: undefined,
-              currentOccupantName: undefined,
-              bookedUntil: undefined
-            }
-          : s
-      )
-    );
-    showToast(`Desk S-${String(seatId).padStart(2, '0')} is now available.`);
   };
 
   // Dynamic Book CRUD Handlers
@@ -455,10 +387,9 @@ export const App: React.FC = () => {
     try {
       const created = await bookService.createBook(newBook);
       setBooks((prev) => [created, ...prev.filter((b) => b.id !== created.id)]);
-      showToast(`Book "${created.title}" saved to database!`);
+      showToast(`Book "${created.title}" saved to library database!`);
     } catch (err: any) {
-      setBooks((prev) => [newBook, ...prev]);
-      showToast(err.message || `Book "${newBook.title}" added to catalog!`);
+      showToast(err.message || 'Error adding book', 'error');
     }
   };
 
@@ -468,8 +399,7 @@ export const App: React.FC = () => {
       setBooks((prev) => prev.map((b) => (b.id === updated.id ? updated : b)));
       showToast(`Book "${updated.title}" updated successfully!`);
     } catch (err: any) {
-      setBooks((prev) => prev.map((b) => (b.id === updatedBook.id ? updatedBook : b)));
-      showToast(err.message || `Book "${updatedBook.title}" updated!`);
+      showToast(err.message || 'Error updating book', 'error');
     }
   };
 
@@ -479,8 +409,7 @@ export const App: React.FC = () => {
       setBooks((prev) => prev.filter((b) => b.id !== bookId));
       showToast('Book removed from database catalog.', 'info');
     } catch (err: any) {
-      setBooks((prev) => prev.filter((b) => b.id !== bookId));
-      showToast(err.message || 'Book removed from catalog.', 'info');
+      showToast(err.message || 'Error removing book', 'error');
     }
   };
 
@@ -489,10 +418,9 @@ export const App: React.FC = () => {
     try {
       const created = await memberService.createMember(newMember);
       setMembers((prev) => [created, ...prev.filter((m) => m.id !== created.id)]);
-      showToast(`Member ${created.name} (${created.rollNo}) registered in database!`);
+      showToast(`Member ${created.name} (${created.rollNo}) registered successfully!`);
     } catch (err: any) {
-      setMembers((prev) => [newMember, ...prev]);
-      showToast(err.message || `Member ${newMember.name} registered!`);
+      showToast(err.message || 'Error registering member', 'error');
     }
   };
 
@@ -502,12 +430,7 @@ export const App: React.FC = () => {
       setMembers((prev) => prev.map((m) => (m.id === updated.id ? updated : m)));
       showToast(`Member status updated to ${updated.status}!`);
     } catch (err: any) {
-      setMembers((prev) =>
-        prev.map((m) =>
-          m.id === memberId ? { ...m, status: m.status === 'Active' ? 'Blocked' : 'Active' } : m
-        )
-      );
-      showToast(err.message || 'Member status updated!');
+      showToast(err.message || 'Error updating member', 'error');
     }
   };
 
@@ -515,10 +438,9 @@ export const App: React.FC = () => {
     try {
       await memberService.deleteMember(memberId);
       setMembers((prev) => prev.filter((m) => m.id !== memberId));
-      showToast('Member deleted from college registry database.', 'info');
+      showToast('Member removed from college registry.', 'info');
     } catch (err: any) {
-      setMembers((prev) => prev.filter((m) => m.id !== memberId));
-      showToast(err.message || 'Member deleted.', 'info');
+      showToast(err.message || 'Error deleting member', 'error');
     }
   };
 
@@ -545,7 +467,6 @@ export const App: React.FC = () => {
     }
   };
 
-  // Quick initiate issue from Book Details
   const handleInitiateIssueFromDialog = (book: Book) => {
     if (!isAuthenticated && currentRole !== 'librarian') {
       handleOpenLogin('librarian');
@@ -557,7 +478,6 @@ export const App: React.FC = () => {
     showToast(`Loaded "${book.title}" in Circulation Desk Issue Counter`, 'info');
   };
 
-  // Reserve book from Book Details
   const handleReserveBook = (book: Book) => {
     showToast(`Hold slip placed for "${book.title}". Please pick it up from Almari #${book.almariNo} within 48 hours.`);
   };
@@ -568,13 +488,10 @@ export const App: React.FC = () => {
   const renderCurrentView = () => {
     if (loading) {
       return (
-        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', gap: 2 }}>
-          <CircularProgress size={48} sx={{ color: '#0f2942' }} />
-          <Typography variant="h6" sx={{ fontWeight: 700, color: '#0f2942' }}>
-            Connecting to College Library Backend Database...
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Loading real-time books, shelves, circulation records, and study hall seats...
+        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '65vh', gap: 2.5 }}>
+          <CircularProgress size={52} thickness={4} sx={{ color: '#0f2942' }} />
+          <Typography variant="h6" sx={{ fontWeight: 800, color: '#0f2942' }}>
+            Govt Associate College Data Nagar Library
           </Typography>
         </Box>
       );
@@ -644,9 +561,19 @@ export const App: React.FC = () => {
               transactions={transactions}
               onCollectFine={handleCollectFine}
               onWaiveFine={handleWaiveFine}
+              fineRatePerDay={settings?.finePerDay || 5}
             />
           );
         case 6:
+          return (
+            <ManageSettings
+              settings={settings}
+              onUpdateSettings={(s) => setSettings(s)}
+              currentRole={currentRole}
+              showToast={showToast}
+            />
+          );
+        case 7:
         default:
           return (
             <BookCatalog
@@ -717,11 +644,21 @@ export const App: React.FC = () => {
               transactions={transactions}
               onCollectFine={handleCollectFine}
               onWaiveFine={handleWaiveFine}
+              fineRatePerDay={settings?.finePerDay || 5}
             />
           );
         case 5:
+          return (
+            <ManageSettings
+              settings={settings}
+              onUpdateSettings={(s) => setSettings(s)}
+              currentRole={currentRole}
+              showToast={showToast}
+            />
+          );
+        case 6:
         default:
-          return <AboutAndRules />;
+          return <AboutAndRules settings={settings} almaris={almaris} />;
       }
     }
 
@@ -773,7 +710,7 @@ export const App: React.FC = () => {
         );
       case 4:
       default:
-        return <AboutAndRules />;
+        return <AboutAndRules settings={settings} almaris={almaris} />;
     }
   };
 
@@ -861,7 +798,7 @@ export const App: React.FC = () => {
           onSubmitFeedback={async (fb) => {
             try {
               await feedbackService.submitFeedback(fb);
-              showToast('Thank you! Feedback recorded in backend database.');
+              showToast('Thank you! Feedback recorded in college library database.');
             } catch {
               showToast('Feedback submitted to college librarian!');
             }

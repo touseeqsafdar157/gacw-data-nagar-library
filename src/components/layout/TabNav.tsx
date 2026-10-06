@@ -6,13 +6,13 @@ import {
   AutoStories as BookIcon,
   Chair as ChairIcon,
   HelpOutline as RulesIcon,
-  Badge as LibrarianIcon,
-  AdminPanelSettings as AdminIcon,
   Payment as FineIcon,
   People as MemberIcon,
   AssignmentTurnedIn as IssueIcon,
   MeetingRoom as AlmariIcon,
-  Assessment as ReportIcon
+  Assessment as ReportIcon,
+  Settings as SettingsIcon,
+  AdminPanelSettings as AdminIcon
 } from '@mui/icons-material';
 import { UserRole } from '../../types/library';
 
@@ -26,7 +26,7 @@ export const TabNav: React.FC<TabNavProps> = ({ currentRole, currentTab, onTabCh
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
-  if (isMobile) return null; // Controlled by mobile drawer on phones
+  if (isMobile) return null;
 
   const renderTabs = () => {
     if (currentRole === 'librarian') {
@@ -37,6 +37,7 @@ export const TabNav: React.FC<TabNavProps> = ({ currentRole, currentTab, onTabCh
         <Tab key="shelves" icon={<AlmariIcon />} iconPosition="start" label="Manage Shelves & Almaris" />,
         <Tab key="members" icon={<MemberIcon />} iconPosition="start" label="Students & Faculty Directory" />,
         <Tab key="fines" icon={<FineIcon />} iconPosition="start" label="Fine Collection & Waivers" />,
+        <Tab key="settings" icon={<SettingsIcon />} iconPosition="start" label="Settings & Password" />,
         <Tab key="catalog" icon={<SearchIcon />} iconPosition="start" label="Public OPAC Catalog" />
       ];
     }
@@ -48,6 +49,7 @@ export const TabNav: React.FC<TabNavProps> = ({ currentRole, currentTab, onTabCh
         <Tab key="shelves" icon={<AlmariIcon />} iconPosition="start" label="Shelves & Cabinets" />,
         <Tab key="members" icon={<MemberIcon />} iconPosition="start" label="Student Directory" />,
         <Tab key="fines" icon={<FineIcon />} iconPosition="start" label="Fine Collection Reports" />,
+        <Tab key="settings" icon={<SettingsIcon />} iconPosition="start" label="System Settings & Password" />,
         <Tab key="rules" icon={<RulesIcon />} iconPosition="start" label="About & Regulations" />
       ];
     }
@@ -61,8 +63,6 @@ export const TabNav: React.FC<TabNavProps> = ({ currentRole, currentTab, onTabCh
       <Tab key="rules" icon={<RulesIcon />} iconPosition="start" label="About & Regulations" />
     ];
   };
-
-
 
   return (
     <Box sx={{ bgcolor: '#ffffff', borderBottom: '1px solid #e2e8f0', boxShadow: '0 2px 6px rgba(0,0,0,0.03)' }}>

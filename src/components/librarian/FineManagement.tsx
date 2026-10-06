@@ -15,7 +15,6 @@ import {
   TableRow,
   Chip,
   Button,
-  TextField,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -28,7 +27,6 @@ import {
   Receipt as ReceiptIcon,
   CheckCircle as PaidIcon,
   MoneyOff as WaiveIcon,
-  Settings as SettingIcon,
   Print as PrintIcon
 } from '@mui/icons-material';
 import { BorrowTransaction } from '../../types/library';
@@ -37,21 +35,22 @@ interface FineManagementProps {
   transactions: BorrowTransaction[];
   onCollectFine: (transactionId: string) => void;
   onWaiveFine: (transactionId: string) => void;
+  fineRatePerDay?: number;
 }
 
 export const FineManagement: React.FC<FineManagementProps> = ({
   transactions,
   onCollectFine,
-  onWaiveFine
+  onWaiveFine,
+  fineRatePerDay = 5
 }) => {
-  const [fineRatePerDay, setFineRatePerDay] = useState<number>(5);
   const [receiptTx, setReceiptTx] = useState<BorrowTransaction | null>(null);
 
   const pendingFines = transactions.filter((t) => t.fineStatus === 'Pending' && t.fineAmount > 0);
   const totalPendingAmount = pendingFines.reduce((sum, t) => sum + t.fineAmount, 0);
 
-  // Mock collected history
-  const totalCollectedAmount = 4320;
+  const paidFines = transactions.filter((t) => t.fineStatus === 'Paid' && t.fineAmount > 0);
+  const totalCollectedAmount = paidFines.reduce((sum, t) => sum + t.fineAmount, 0);
 
   const handleCollectWithReceipt = (tx: BorrowTransaction) => {
     onCollectFine(tx.id);
@@ -84,7 +83,6 @@ export const FineManagement: React.FC<FineManagementProps> = ({
               <Typography variant="caption" color="text.secondary">
                 Across {pendingFines.length} overdue issued book returns
               </Typography>
-
             </CardContent>
           </Card>
         </Grid>
@@ -93,13 +91,13 @@ export const FineManagement: React.FC<FineManagementProps> = ({
           <Card sx={{ borderRadius: 3, border: '1px solid #cbd5e1' }}>
             <CardContent sx={{ p: 3 }}>
               <Typography variant="caption" sx={{ fontWeight: 700, color: '#059669', textTransform: 'uppercase' }}>
-                Total Fines Deposited (This Session)
+                Total Fines Deposited (Collected)
               </Typography>
               <Typography variant="h4" sx={{ fontWeight: 800, color: '#059669', my: 1 }}>
                 Rs. {totalCollectedAmount}
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                Deposited in Govt College Library Development Fund
+                Logged & verified in college treasury accounts
               </Typography>
             </CardContent>
           </Card>
@@ -108,97 +106,77 @@ export const FineManagement: React.FC<FineManagementProps> = ({
         <Grid item xs={12} sm={4}>
           <Card sx={{ borderRadius: 3, border: '1px solid #cbd5e1' }}>
             <CardContent sx={{ p: 3 }}>
-              <Typography variant="caption" sx={{ fontWeight: 700, color: '#d97706', textTransform: 'uppercase' }}>
-                Current College Fine Rate
+              <Typography variant="caption" sx={{ fontWeight: 700, color: '#0284c7', textTransform: 'uppercase' }}>
+                Configured Daily Overdue Rate
               </Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, my: 1 }}>
-                <Typography variant="h4" sx={{ fontWeight: 800, color: '#0f2942' }}>
-                  Rs. {fineRatePerDay}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  / Day per book
-                </Typography>
-              </Box>
+              <Typography variant="h4" sx={{ fontWeight: 800, color: '#0284c7', my: 1 }}>
+                Rs. {fineRatePerDay} / day
+              </Typography>
               <Typography variant="caption" color="text.secondary">
-                Standard Punjab Higher Education Department rule
+                Levied automatically past 14-day due date
               </Typography>
             </CardContent>
           </Card>
         </Grid>
       </Grid>
 
-      {/* Pending Fines Register */}
+      {/* Pending Fines Table */}
       <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid #cbd5e1', bgcolor: '#fff' }}>
         <Typography variant="h6" sx={{ fontWeight: 800, color: '#0f2942', mb: 2 }}>
-          Unresolved Overdue Fines Register ({pendingFines.length})
+          Pending Overdue Books & Fine Dues
         </Typography>
 
         {pendingFines.length === 0 ? (
           <Alert severity="success" sx={{ borderRadius: 2 }}>
-            All library dues are currently cleared! No students have unpaid overdue penalties.
+            No pending overdue fines in library records! All issued books are within due date limits.
           </Alert>
         ) : (
           <TableContainer>
             <Table>
-              <TableHead sx={{ bgcolor: '#f1f5f9' }}>
+              <TableHead sx={{ bgcolor: '#f8fafc' }}>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: 800 }}>Roll Number</TableCell>
-                  <TableCell sx={{ fontWeight: 800 }}>Student Name</TableCell>
-                  <TableCell sx={{ fontWeight: 800 }}>Class & Section</TableCell>
-                  <TableCell sx={{ fontWeight: 800 }}>Overdue Book</TableCell>
-                  <TableCell sx={{ fontWeight: 800 }}>Due Date</TableCell>
-                  <TableCell sx={{ fontWeight: 800 }}>Accumulated Fine</TableCell>
-                  <TableCell sx={{ fontWeight: 800, textAlign: 'center' }}>Clearance Actions</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>Roll No</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>Student Name</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>Book Title</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>Due Date</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>Fine Amount</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700 }}>Action</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {pendingFines.map((t) => (
-                  <TableRow key={t.id} hover>
-                    <TableCell sx={{ fontWeight: 800, color: '#800020', fontFamily: 'monospace' }}>
-                      {t.memberRollNo}
-                    </TableCell>
-                    <TableCell sx={{ fontWeight: 700, color: '#0f2942' }}>{t.memberName}</TableCell>
+                {pendingFines.map((tx) => (
+                  <TableRow key={tx.id} hover>
+                    <TableCell sx={{ fontWeight: 700 }}>{tx.memberRollNo}</TableCell>
+                    <TableCell>{tx.memberName}</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>{tx.bookTitle}</TableCell>
+                    <TableCell sx={{ color: '#dc2626', fontWeight: 600 }}>{tx.dueDate}</TableCell>
+                    <TableCell sx={{ fontWeight: 800, color: '#dc2626' }}>Rs. {tx.fineAmount}</TableCell>
                     <TableCell>
-                      <Typography variant="body2">{t.memberClass}</Typography>
-                      <Typography variant="caption" color="text.secondary">{t.memberSection}</Typography>
+                      <Chip label="Pending Payment" color="error" size="small" sx={{ fontWeight: 700 }} />
                     </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" sx={{ fontWeight: 600 }}>{t.bookTitle}</Typography>
-                      <Typography variant="caption" color="text.secondary">{t.bookAccessionNo}</Typography>
-                    </TableCell>
-                    <TableCell sx={{ color: '#dc2626', fontWeight: 700 }}>{t.dueDate}</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={`Rs. ${t.fineAmount}`}
-                        color="error"
-                        size="small"
-                        sx={{ fontWeight: 800, fontSize: '0.8rem' }}
-                      />
-                    </TableCell>
-                    <TableCell sx={{ textAlign: 'center' }}>
-                      <Button
-                        size="small"
-                        variant="contained"
-                        startIcon={<PaidIcon />}
-                        onClick={() => handleCollectWithReceipt(t)}
-                        sx={{ mr: 1, bgcolor: '#059669', fontSize: '0.75rem' }}
-                      >
-                        Collect & Receipt
-                      </Button>
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        color="secondary"
-                        startIcon={<WaiveIcon />}
-                        onClick={() => {
-                          if (window.confirm(`Waive fine of Rs. ${t.fineAmount} for ${t.memberName}?`)) {
-                            onWaiveFine(t.id);
-                          }
-                        }}
-                        sx={{ fontSize: '0.75rem' }}
-                      >
-                        Waive
-                      </Button>
+                    <TableCell align="right">
+                      <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
+                        <Button
+                          variant="contained"
+                          size="small"
+                          startIcon={<PaidIcon />}
+                          onClick={() => handleCollectWithReceipt(tx)}
+                          sx={{ bgcolor: '#059669', fontWeight: 700 }}
+                        >
+                          Collect Fine
+                        </Button>
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          color="warning"
+                          startIcon={<WaiveIcon />}
+                          onClick={() => onWaiveFine(tx.id)}
+                          sx={{ fontWeight: 700 }}
+                        >
+                          Waive Fine
+                        </Button>
+                      </Box>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -208,51 +186,62 @@ export const FineManagement: React.FC<FineManagementProps> = ({
         )}
       </Paper>
 
-      {/* Payment Receipt Dialog */}
+      {/* Official Receipt Dialog */}
       <Dialog open={Boolean(receiptTx)} onClose={() => setReceiptTx(null)} maxWidth="xs" fullWidth>
-        <DialogTitle sx={{ bgcolor: '#0f2942', color: '#fff', fontWeight: 700 }}>
-          Official Fine Payment Receipt
+        <DialogTitle sx={{ bgcolor: '#0f2942', color: '#fff', fontWeight: 800 }}>
+          Official Fine Deposit Receipt
         </DialogTitle>
-        <DialogContent sx={{ p: 3 }}>
+        <DialogContent sx={{ p: 3, pt: 3 }}>
           {receiptTx && (
-            <Paper elevation={0} sx={{ p: 2.5, border: '2px dashed #cbd5e1', borderRadius: 2, textAlign: 'center' }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#800020' }}>
-                GOVT ASSOCIATE COLLEGE DATA NAGAR LAHORE
+            <Box sx={{ textAlign: 'center' }}>
+              <Typography variant="h6" sx={{ fontWeight: 800, color: '#800020' }}>
+                Govt Associate College Data Nagar Lahore
               </Typography>
-              <Typography variant="caption" sx={{ color: '#64748b', display: 'block', mb: 2 }}>
-                CENTRAL LIBRARY FINE CLEARANCE VOUCHER
-              </Typography>
-
-              <Divider sx={{ my: 1.5 }} />
-
-              <Box sx={{ textAlign: 'left', mb: 2 }}>
-                <Typography variant="caption" color="text.secondary">Receipt No: <strong>RCP-{Date.now().toString().slice(-6)}</strong></Typography><br />
-                <Typography variant="caption" color="text.secondary">Student Name: <strong>{receiptTx.memberName}</strong></Typography><br />
-                <Typography variant="caption" color="text.secondary">Roll Number: <strong>{receiptTx.memberRollNo}</strong></Typography><br />
-                <Typography variant="caption" color="text.secondary">Class: <strong>{receiptTx.memberClass}</strong></Typography><br />
-                <Typography variant="caption" color="text.secondary">Book: <strong>{receiptTx.bookTitle}</strong></Typography>
-              </Box>
-
-              <Box sx={{ bgcolor: '#ecfdf5', p: 1.5, borderRadius: 2, border: '1px solid #a7f3d0', my: 2 }}>
-                <Typography variant="caption" sx={{ color: '#047857', fontWeight: 700 }}>
-                  PAID AMOUNT
-                </Typography>
-                <Typography variant="h5" sx={{ fontWeight: 800, color: '#059669' }}>
-                  Rs. {receiptTx.fineAmount} (CASH)
-                </Typography>
-              </Box>
-
               <Typography variant="caption" color="text.secondary">
-                Issued by: Librarian Rashid Mahmood | Date: {new Date().toLocaleDateString()}
+                Central Library Department — Computerized Fine Clearance
               </Typography>
-            </Paper>
+              <Divider sx={{ my: 2 }} />
+
+              <Box sx={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 1 }}>
+                <Typography variant="body2">
+                  <strong>Transaction No:</strong> {receiptTx.transactionNo}
+                </Typography>
+                <Typography variant="body2">
+                  <strong>Student Name:</strong> {receiptTx.memberName} ({receiptTx.memberRollNo})
+                </Typography>
+                <Typography variant="body2">
+                  <strong>Book:</strong> {receiptTx.bookTitle}
+                </Typography>
+                <Typography variant="body2">
+                  <strong>Amount Paid:</strong> Rs. {receiptTx.fineAmount}
+                </Typography>
+                <Typography variant="body2">
+                  <strong>Date:</strong> {new Date().toLocaleDateString('en-PK')}
+                </Typography>
+                <Typography variant="body2">
+                  <strong>Received By:</strong> {receiptTx.issuedByStaff || 'Chief Librarian'}
+                </Typography>
+              </Box>
+
+              <Alert severity="success" sx={{ mt: 2.5, borderRadius: 2, textAlign: 'left' }}>
+                Payment verified. Dues cleared for roll number slip issuance.
+              </Alert>
+            </Box>
           )}
         </DialogContent>
         <DialogActions sx={{ p: 2.5, bgcolor: '#f8fafc' }}>
           <Button onClick={() => setReceiptTx(null)} variant="outlined">
-            Done
+            Close
           </Button>
-          <Button onClick={() => window.print()} variant="contained" startIcon={<PrintIcon />} sx={{ bgcolor: '#0f2942' }}>
+          <Button
+            variant="contained"
+            startIcon={<PrintIcon />}
+            onClick={() => {
+              window.print();
+              setReceiptTx(null);
+            }}
+            sx={{ bgcolor: '#0f2942', fontWeight: 700 }}
+          >
             Print Receipt
           </Button>
         </DialogActions>
